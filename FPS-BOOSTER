@@ -1,0 +1,505 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local player = Players.LocalPlayer
+
+local KEYFILE = "RelzFPSKey.txt"
+local ValidKeys = {"LZRZ_1443381972830011928"}
+
+local function validateKey(key)
+    for _, v in pairs(ValidKeys) do
+        if key == v then return true end
+    end
+    return false
+end
+
+local function loadFPSHub()
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "RelzFPS"
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.Parent = player:WaitForChild("PlayerGui")
+
+    local hue = 0
+    local expanded = true
+    local lowGfxOn = false
+
+    -- Notification function (defined first so buttons can use it)
+    local function showNotif(text)
+        local existing = player.PlayerGui:FindFirstChild("RelzNotif")
+        if existing then existing:Destroy() end
+
+        local notifGui = Instance.new("ScreenGui")
+        notifGui.Name = "RelzNotif"
+        notifGui.ResetOnSpawn = false
+        notifGui.IgnoreGuiInset = true
+        notifGui.Parent = player.PlayerGui
+
+        local notifFrame = Instance.new("Frame")
+        notifFrame.Size = UDim2.fromOffset(250, 45)
+        notifFrame.Position = UDim2.new(1, 10, 1, -70)
+        notifFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+        notifFrame.BorderSizePixel = 0
+        notifFrame.Parent = notifGui
+        Instance.new("UICorner", notifFrame).CornerRadius = UDim.new(0, 8)
+
+        -- Rainbow border on notif
+        local notifBorder = Instance.new("UIStroke")
+        notifBorder.Thickness = 2
+        notifBorder.Parent = notifFrame
+
+        task.spawn(function()
+            local h = 0
+            while notifFrame and notifFrame.Parent do
+                h = (h + 2) % 360
+                notifBorder.Color = Color3.fromHSV(h/360, 1, 1)
+                task.wait(0.03)
+            end
+        end)
+
+        local notifLabel = Instance.new("TextLabel")
+        notifLabel.Size = UDim2.new(1, -10, 1, 0)
+        notifLabel.Position = UDim2.new(0, 5, 0, 0)
+        notifLabel.BackgroundTransparency = 1
+        notifLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        notifLabel.Text = text
+        notifLabel.TextScaled = true
+        notifLabel.Font = Enum.Font.GothamBold
+        notifLabel.Parent = notifFrame
+
+        -- Slide in
+        TweenService:Create(notifFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = UDim2.new(1, -260, 1, -70)
+        }):Play()
+
+        -- Slide out after 3 seconds
+        task.delay(3, function()
+            if notifFrame and notifFrame.Parent then
+                TweenService:Create(notifFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                    Position = UDim2.new(1, 10, 1, -70)
+                }):Play()
+                task.wait(0.3)
+                notifGui:Destroy()
+            end
+        end)
+    end
+
+    -- Main Frame
+    local Main = Instance.new("Frame")
+    Main.Size = UDim2.fromOffset(320, 285)
+    Main.Position = UDim2.new(0, 10, 0, 100)
+    Main.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    Main.BorderSizePixel = 0
+    Main.ClipsDescendants = true
+    Main.Parent = gui
+    Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
+
+    -- Rainbow border
+    local Border = Instance.new("UIStroke")
+    Border.Thickness = 3
+    Border.Parent = Main
+
+    task.spawn(function()
+        while gui and gui.Parent do
+            hue = (hue + 1) % 360
+            Border.Color = Color3.fromHSV(hue/360, 1, 1)
+            task.wait(0.03)
+        end
+    end)
+
+    -- Draggable
+    local dragging, dragStart, startPos
+    Main.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = Main.Position
+        end
+    end)
+    Main.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+            local delta = input.Position - dragStart
+            Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    Main.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+
+    -- + / - Toggle button top right
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.fromOffset(30, 30)
+    ToggleBtn.Position = UDim2.new(1, -35, 0, 5)
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleBtn.Text = "-"
+    ToggleBtn.TextScaled = true
+    ToggleBtn.Font = Enum.Font.GothamBold
+    ToggleBtn.BorderSizePixel = 0
+    ToggleBtn.ZIndex = 5
+    ToggleBtn.Parent = Main
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
+
+    -- Title
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, -45, 0, 30)
+    Title.Position = UDim2.new(0, 10, 0, 8)
+    Title.BackgroundTransparency = 1
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.Text = "RelzExxploitz FPS BOOSTER"
+    Title.TextScaled = true
+    Title.Font = Enum.Font.GothamBold
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = Main
+
+    -- FPS Label
+    local FPSLabel = Instance.new("TextLabel")
+    FPSLabel.Size = UDim2.new(1, -10, 0, 25)
+    FPSLabel.Position = UDim2.new(0, 10, 0, 40)
+    FPSLabel.BackgroundTransparency = 1
+    FPSLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    FPSLabel.Text = "FPS: --"
+    FPSLabel.TextScaled = true
+    FPSLabel.Font = Enum.Font.GothamBold
+    FPSLabel.TextXAlignment = Enum.TextXAlignment.Left
+    FPSLabel.Parent = Main
+
+    RunService.Heartbeat:Connect(function(delta)
+        if FPSLabel and FPSLabel.Parent then
+            FPSLabel.Text = "FPS: " .. math.floor(1/delta)
+        end
+    end)
+
+    -- Divider
+    local Divider = Instance.new("Frame")
+    Divider.Size = UDim2.new(1, -20, 0, 1)
+    Divider.Position = UDim2.new(0, 10, 0, 72)
+    Divider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    Divider.BorderSizePixel = 0
+    Divider.Parent = Main
+
+    -- Content frame
+    local Content = Instance.new("Frame")
+    Content.Size = UDim2.new(1, 0, 1, -80)
+    Content.Position = UDim2.new(0, 0, 0, 78)
+    Content.BackgroundTransparency = 1
+    Content.Parent = Main
+
+    local function makeBtn(text, yPos, bgColor, txtColor, cb)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, -20, 0, 42)
+        btn.Position = UDim2.new(0, 10, 0, yPos)
+        btn.BackgroundColor3 = bgColor or Color3.fromRGB(30, 30, 30)
+        btn.TextColor3 = txtColor or Color3.fromRGB(255, 255, 255)
+        btn.Text = text
+        btn.TextScaled = true
+        btn.Font = Enum.Font.GothamBold
+        btn.BorderSizePixel = 0
+        btn.Parent = Content
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+        if cb then btn.MouseButton1Click:Connect(cb) end
+        return btn
+    end
+
+    -- LOW GFX Button
+    local lowGfxBtn = makeBtn("LOW GFX: OFF", 5, Color3.fromRGB(30,30,30), Color3.fromRGB(255,60,60))
+
+    lowGfxBtn.MouseButton1Click:Connect(function()
+        lowGfxOn = not lowGfxOn
+        if lowGfxOn then
+            Lighting.GlobalShadows = false
+            Lighting.FogEnd = 999999
+            Lighting.FogStart = 999999
+            Lighting.Brightness = 2
+            Lighting.Ambient = Color3.fromRGB(255,255,255)
+            Lighting.OutdoorAmbient = Color3.fromRGB(255,255,255)
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+            for _, e in pairs(Lighting:GetChildren()) do
+                if e:IsA("BlurEffect") or e:IsA("DepthOfFieldEffect") or e:IsA("SunRaysEffect") or e:IsA("ColorCorrectionEffect") or e:IsA("BloomEffect") then
+                    e.Enabled = false
+                end
+            end
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("Decal") or obj:IsA("Texture") then
+                    obj.Transparency = 1
+                elseif obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") or obj:IsA("ParticleEmitter") then
+                    obj.Enabled = false
+                end
+            end
+            workspace.Terrain.Decoration = false
+            lowGfxBtn.Text = "LOW GFX: ON"
+            lowGfxBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
+            showNotif("FPS Booster = Activated! ✅")
+        else
+            Lighting.GlobalShadows = true
+            Lighting.FogEnd = 100000
+            Lighting.FogStart = 0
+            Lighting.Brightness = 1
+            Lighting.Ambient = Color3.fromRGB(127,127,127)
+            Lighting.OutdoorAmbient = Color3.fromRGB(127,127,127)
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
+            for _, e in pairs(Lighting:GetChildren()) do
+                if e:IsA("BlurEffect") or e:IsA("DepthOfFieldEffect") or e:IsA("SunRaysEffect") or e:IsA("ColorCorrectionEffect") or e:IsA("BloomEffect") then
+                    e.Enabled = true
+                end
+            end
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("Decal") or obj:IsA("Texture") then
+                    obj.Transparency = 0
+                elseif obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") or obj:IsA("ParticleEmitter") then
+                    obj.Enabled = true
+                end
+            end
+            workspace.Terrain.Decoration = true
+            lowGfxBtn.Text = "LOW GFX: OFF"
+            lowGfxBtn.TextColor3 = Color3.fromRGB(255, 60, 60)
+            showNotif("Graphics Reset!")
+        end
+    end)
+
+    -- ULTRA LOW GFX (coming soon, grayed out)
+    local ultraBtn = makeBtn("ULTRA LOW GFX (SOON)", 55, Color3.fromRGB(25,25,25), Color3.fromRGB(90,90,90))
+    ultraBtn.Active = false
+    ultraBtn.AutoButtonColor = false
+
+    -- COPY DISCORD
+    makeBtn("COPY DISCORD", 105, Color3.fromRGB(30,30,30), Color3.fromRGB(255,255,255), function()
+        setclipboard("https://discord.gg/ejrCWF52U")
+        showNotif("Discord Copied! ✅")
+    end)
+
+    -- COPY YOUTUBE
+    makeBtn("COPY YOUTUBE", 155, Color3.fromRGB(30,30,30), Color3.fromRGB(255,255,255), function()
+        setclipboard("https://youtube.com")
+        showNotif("YouTube Copied! ✅")
+    end)
+
+    -- Owner label
+    local OwnerLabel = Instance.new("TextLabel")
+    OwnerLabel.Size = UDim2.new(1, 0, 0, 18)
+    OwnerLabel.Position = UDim2.new(0, 0, 0, 203)
+    OwnerLabel.BackgroundTransparency = 1
+    OwnerLabel.TextColor3 = Color3.fromRGB(80, 80, 80)
+    OwnerLabel.Text = "Owner: bright007n7"
+    OwnerLabel.TextScaled = true
+    OwnerLabel.Font = Enum.Font.Gotham
+    OwnerLabel.Parent = Content
+
+    -- + / - toggle logic
+    ToggleBtn.MouseButton1Click:Connect(function()
+        expanded = not expanded
+        if expanded then
+            TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                Size = UDim2.fromOffset(320, 285)
+            }):Play()
+            ToggleBtn.Text = "-"
+        else
+            TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                Size = UDim2.fromOffset(320, 75)
+            }):Play()
+            ToggleBtn.Text = "+"
+        end
+    end)
+
+    -- Welcome notif on load
+    task.wait(1)
+    showNotif("RelzExxploitz Loaded! ✅")
+end
+
+-- Key System GUI
+local function showKeyGui()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "KeySystem"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.IgnoreGuiInset = true
+    ScreenGui.Parent = player:WaitForChild("PlayerGui")
+
+    local blur = Instance.new("BlurEffect")
+    blur.Size = 20
+    blur.Parent = game:GetService("Lighting")
+
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.fromOffset(400, 280)
+    Frame.Position = UDim2.new(0.5, -200, 1.5, 0)
+    Frame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    Frame.BorderSizePixel = 0
+    Frame.Parent = ScreenGui
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 12)
+
+    -- Rainbow border
+    local keyBorder = Instance.new("UIStroke")
+    keyBorder.Thickness = 3
+    keyBorder.Parent = Frame
+    task.spawn(function()
+        local h = 0
+        while Frame and Frame.Parent do
+            h = (h + 1) % 360
+            keyBorder.Color = Color3.fromHSV(h/360, 1, 1)
+            task.wait(0.03)
+        end
+    end)
+
+    -- Slide in animation
+    TweenService:Create(Frame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, -200, 0.5, -140)
+    }):Play()
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, 0, 0, 40)
+    Title.Position = UDim2.new(0, 0, 0, 15)
+    Title.BackgroundTransparency = 1
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.Text = "RelzExxploitz Key System"
+    Title.TextScaled = true
+    Title.Font = Enum.Font.GothamBold
+    Title.Parent = Frame
+
+    local Subtitle = Instance.new("TextLabel")
+    Subtitle.Size = UDim2.new(1, 0, 0, 20)
+    Subtitle.Position = UDim2.new(0, 0, 0, 55)
+    Subtitle.BackgroundTransparency = 1
+    Subtitle.TextColor3 = Color3.fromRGB(150, 150, 150)
+    Subtitle.Text = "Get your key from our Discord"
+    Subtitle.TextScaled = true
+    Subtitle.Font = Enum.Font.Gotham
+    Subtitle.Parent = Frame
+
+    local Input = Instance.new("TextBox")
+    Input.Size = UDim2.new(0.85, 0, 0, 40)
+    Input.Position = UDim2.new(0.075, 0, 0, 85)
+    Input.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    Input.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Input.PlaceholderText = "Enter key here..."
+    Input.PlaceholderColor3 = Color3.fromRGB(100, 100, 120)
+    Input.Text = ""
+    Input.TextScaled = true
+    Input.Font = Enum.Font.Gotham
+    Input.BorderSizePixel = 0
+    Input.Parent = Frame
+    Instance.new("UICorner", Input).CornerRadius = UDim.new(0, 8)
+
+    -- Loading bar bg
+    local LoadingBg = Instance.new("Frame")
+    LoadingBg.Size = UDim2.new(0.85, 0, 0, 6)
+    LoadingBg.Position = UDim2.new(0.075, 0, 0, 130)
+    LoadingBg.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    LoadingBg.BorderSizePixel = 0
+    LoadingBg.Visible = false
+    LoadingBg.Parent = Frame
+    Instance.new("UICorner", LoadingBg).CornerRadius = UDim.new(0, 3)
+
+    local LoadingBar = Instance.new("Frame")
+    LoadingBar.Size = UDim2.new(0, 0, 1, 0)
+    LoadingBar.BackgroundColor3 = Color3.fromRGB(100, 60, 180)
+    LoadingBar.BorderSizePixel = 0
+    LoadingBar.Parent = LoadingBg
+    Instance.new("UICorner", LoadingBar).CornerRadius = UDim.new(0, 3)
+
+    local StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Size = UDim2.new(1, 0, 0, 22)
+    StatusLabel.Position = UDim2.new(0, 0, 0, 140)
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.TextColor3 = Color3.fromRGB(200, 80, 80)
+    StatusLabel.Text = ""
+    StatusLabel.TextScaled = true
+    StatusLabel.Font = Enum.Font.Gotham
+    StatusLabel.Parent = Frame
+
+    -- Discord button
+    local DiscordBtn = Instance.new("TextButton")
+    DiscordBtn.Size = UDim2.new(0.4, 0, 0, 40)
+    DiscordBtn.Position = UDim2.new(0.075, 0, 0, 170)
+    DiscordBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+    DiscordBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    DiscordBtn.Text = "COPY DISCORD"
+    DiscordBtn.TextScaled = true
+    DiscordBtn.Font = Enum.Font.GothamBold
+    DiscordBtn.BorderSizePixel = 0
+    DiscordBtn.Parent = Frame
+    Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 8)
+
+    -- Submit button
+    local SubmitBtn = Instance.new("TextButton")
+    SubmitBtn.Size = UDim2.new(0.4, 0, 0, 40)
+    SubmitBtn.Position = UDim2.new(0.525, 0, 0, 170)
+    SubmitBtn.BackgroundColor3 = Color3.fromRGB(100, 60, 180)
+    SubmitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SubmitBtn.Text = "SUBMIT"
+    SubmitBtn.TextScaled = true
+    SubmitBtn.Font = Enum.Font.GothamBold
+    SubmitBtn.BorderSizePixel = 0
+    SubmitBtn.Parent = Frame
+    Instance.new("UICorner", SubmitBtn).CornerRadius = UDim.new(0, 8)
+
+    -- Owner
+    local OwnerLabel = Instance.new("TextLabel")
+    OwnerLabel.Size = UDim2.new(1, 0, 0, 18)
+    OwnerLabel.Position = UDim2.new(0, 0, 0, 255)
+    OwnerLabel.BackgroundTransparency = 1
+    OwnerLabel.TextColor3 = Color3.fromRGB(80, 80, 80)
+    OwnerLabel.Text = "Owner: bright007n7"
+    OwnerLabel.TextScaled = true
+    OwnerLabel.Font = Enum.Font.Gotham
+    OwnerLabel.Parent = Frame
+
+    DiscordBtn.MouseButton1Click:Connect(function()
+        setclipboard("https://discord.gg/ejrCWF52U")
+        StatusLabel.TextColor3 = Color3.fromRGB(88, 101, 242)
+        StatusLabel.Text = "Discord copied! ✅"
+    end)
+
+    SubmitBtn.MouseButton1Click:Connect(function()
+        local key = Input.Text:gsub("%s+", "")
+        Input.Text = ""
+        StatusLabel.Text = ""
+        LoadingBg.Visible = true
+        LoadingBar.Size = UDim2.new(0, 0, 1, 0)
+        TweenService:Create(LoadingBar, TweenInfo.new(1, Enum.EasingStyle.Quad), {
+            Size = UDim2.new(1, 0, 1, 0)
+        }):Play()
+        task.spawn(function()
+            task.wait(1)
+            if validateKey(key) then
+                writefile(KEYFILE, key)
+                LoadingBar.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+                StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+                StatusLabel.Text = "✅ Key Accepted! Loading..."
+                task.wait(0.8)
+                blur:Destroy()
+                TweenService:Create(Frame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+                    Position = UDim2.new(0.5, -200, -1.5, 0)
+                }):Play()
+                task.wait(0.4)
+                ScreenGui:Destroy()
+                loadFPSHub()
+            else
+                LoadingBar.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
+                StatusLabel.TextColor3 = Color3.fromRGB(200, 80, 80)
+                StatusLabel.Text = "❌ Invalid Key! Get one from Discord."
+                task.wait(0.5)
+                LoadingBg.Visible = false
+                LoadingBar.BackgroundColor3 = Color3.fromRGB(100, 60, 180)
+            end
+        end)
+    end)
+end
+
+-- Check saved key
+local success, savedKey = pcall(function()
+    return readfile(KEYFILE)
+end)
+
+if success and savedKey and savedKey ~= "" then
+    if validateKey(savedKey:gsub("%s+", "")) then
+        loadFPSHub()
+    else
+        pcall(function() writefile(KEYFILE, "") end)
+        showKeyGui()
+    end
+else
+    showKeyGui()
+end
